@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29709.97
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GmaExtractorLibrary", "GmaExtractorLibrary\GmaExtractorLibrary.csproj", "{C5761BA0-94D2-4A9D-BE2D-CE6C25512770}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C5761BA0-94D2-4A9D-BE2D-CE6C25512770}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5761BA0-94D2-4A9D-BE2D-CE6C25512770}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5761BA0-94D2-4A9D-BE2D-CE6C25512770}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5761BA0-94D2-4A9D-BE2D-CE6C25512770}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {15E296C1-9D35-4C4E-90C8-88CE7D8FEB0C}
+	EndGlobalSection
+EndGlobal
