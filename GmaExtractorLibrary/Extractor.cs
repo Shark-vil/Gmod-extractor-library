@@ -20,16 +20,109 @@ namespace GmaExtractorLibrary
             public bool IsBin = false;
         }
 
-        public static string BinPath = null;
+        public static string GameFolderPath = null;
         public static string ContentPath = null;
         public static string ExtractPath = null;
         public static string SevenZipExePath = null;
 
         private static List<ExtractData> ContentData = new List<ExtractData>();
+        private static List<ExtractData> AllContentData = new List<ExtractData>();
 
         public static List<ExtractData> GetContentData()
         {
             return ContentData;
+        }
+
+        public static void InitConfig()
+        {
+            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string configDirectoryPath = Path.Combine(baseDirectory, "Config");
+
+            if (!Directory.Exists(configDirectoryPath))
+                Directory.CreateDirectory(configDirectoryPath);
+
+            string fileSettingsPath = Path.Combine(configDirectoryPath, "settings.cfg");
+
+            string GameDirectoryPath = @"C:\SteamLibrary\steamapps\common\GarrysMod";
+            string GameWorkshopDirectoryPath = @"C:\SteamLibrary\steamapps\workshop\content\4000";
+            string GmaExtractPath = Path.Combine(baseDirectory, "Extract");
+            string SevenZipPath = Path.Combine(baseDirectory, @"Library\7-Zip-Portable\App\7-Zip64\7z.exe");
+
+            if (!File.Exists(fileSettingsPath))
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    DriveInfo[] allDrives = DriveInfo.GetDrives();
+                    foreach (DriveInfo d in allDrives)
+                    {
+                        if (d.IsReady == true)
+                        {
+                            if (!Directory.Exists(GameDirectoryPath))
+                            {
+                                string path = d.Name + @"SteamLibrary\steamapps\common\GarrysMod";
+                                if (Directory.Exists(path))
+                                {
+                                    GameDirectoryPath = path;
+                                    Console.WriteLine("Found the directory of the game - " + path);
+                                }
+                            }
+
+                            if (!Directory.Exists(GameWorkshopDirectoryPath))
+                            {
+                                string path = d.Name + @"SteamLibrary\steamapps\workshop\content\4000";
+                                if (Directory.Exists(path))
+                                {
+                                    GameWorkshopDirectoryPath = path;
+                                    Console.WriteLine("Found the directory of the workshop game - " + path);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ConfigFileManager.WriteConfig(fileSettingsPath, new List<ConfigStructure>
+                {
+                    new ConfigStructure
+                    {
+                        Key = "GameFolderPath",
+                        Value = GameDirectoryPath
+                    },
+                    new ConfigStructure
+                    {
+                        Key = "ContentPath",
+                        Value = GameWorkshopDirectoryPath
+                    },
+                    new ConfigStructure
+                    {
+                        Key = "ExtractPath",
+                        Value = GmaExtractPath
+                    },
+                    new ConfigStructure
+                    {
+                        Key = "SevenZipExePath",
+                        Value = SevenZipPath
+                    },
+                });
+            }
+
+            List<ConfigStructure> Config = ConfigFileManager.ReadConfig(fileSettingsPath);
+
+            GameFolderPath = Config.Find(x => x.Key == "GameFolderPath").Value;
+            ContentPath = Config.Find(x => x.Key == "ContentPath").Value;
+            ExtractPath = Config.Find(x => x.Key == "ExtractPath").Value;
+            SevenZipExePath = Config.Find(x => x.Key == "SevenZipExePath").Value;
+
+            if (!Directory.Exists(GameFolderPath))
+                Console.WriteLine($"WARNING!\nInvalid directory path - {GameFolderPath}\nPlease edit the path in the config file - {fileSettingsPath}\n");
+
+            if (!Directory.Exists(ContentPath))
+                Console.WriteLine($"WARNING!\nInvalid directory path - {ContentPath}\nPlease edit the path in the config file - {fileSettingsPath}\n");
+
+            if (!Directory.Exists(ExtractPath))
+                Console.WriteLine($"WARNING!\nInvalid directory path - {ExtractPath}\nPlease edit the path in the config file - {fileSettingsPath}\n");
+
+            if (!File.Exists(SevenZipExePath))
+                Console.WriteLine($"WARNING!\nInvalid file path - {SevenZipExePath}\nPlease edit the path in the config file - {fileSettingsPath}\n");
         }
 
         public static void ParseDirectory()
@@ -51,14 +144,50 @@ namespace GmaExtractorLibrary
                         if (Path.GetExtension(ContentFiles[0]) == ".bin")
                             isBin = true;
 
-                        ContentData.Add(new ExtractData
+                        if (!ContentData.Exists(x => x.AddonUid == uid))
                         {
-                            AddonFileName = Path.GetFileNameWithoutExtension(ContentFiles[0]),
-                            AddonDirectoryName = Path.GetFileName(dir),
-                            AddonPath = ContentFiles[0],
-                            AddonUid = uid,
-                            IsBin = isBin
-                        });
+                            var data = new ExtractData
+                            {
+                                AddonFileName = Path.GetFileNameWithoutExtension(ContentFiles[0]),
+                                AddonDirectoryName = Path.GetFileName(dir),
+                                AddonPath = ContentFiles[0],
+                                AddonUid = uid,
+                                IsBin = isBin
+                            };
+
+                            ContentData.Add(data);
+                            AllContentData.Add(data);
+                        }
+                    }
+                }
+            }
+
+            string AddonsFolder = Path.Combine(GameFolderPath, "garrysmod", "addons");
+
+            if (AddonsFolder != null && Directory.Exists(AddonsFolder))
+            {
+                string[] ContentFiles = Directory.GetFiles(AddonsFolder);
+
+                if (ContentFiles.Length != 0)
+                {
+                    foreach (var ContentFile in ContentFiles)
+                    {
+                        string[] SplitStr = Path.GetFileName(ContentFile).Split('_');
+                        string NormalizeUid = SplitStr[SplitStr.Length - 1].Replace(".gma", string.Empty);
+
+                        var data = new ExtractData
+                        {
+                            AddonFileName = Path.GetFileNameWithoutExtension(ContentFile),
+                            AddonDirectoryName = Path.GetFileName(AddonsFolder),
+                            AddonPath = ContentFile,
+                            AddonUid = NormalizeUid,
+                            IsBin = false
+                        };
+
+                        AllContentData.Add(data);
+
+                        if (!ContentData.Exists(x => x.AddonUid == NormalizeUid))
+                            ContentData.Add(data);
                     }
                 }
             }
@@ -66,12 +195,20 @@ namespace GmaExtractorLibrary
 
         public static ExtractData GetDataByUid(string uid)
         {
-            return ContentData.Find(x => x.AddonUid == uid);
+            ExtractData data = ContentData.Find(x => x.AddonUid == uid);
+            return (data != null) ? data : AllContentData.Find(x => x.AddonUid == uid);
         }
 
         public static ExtractData GetDataByFilename(string filename)
         {
-            return ContentData.Find(x => x.AddonFileName == filename);
+            ExtractData data = ContentData.Find(x => x.AddonFileName == filename);
+            return (data != null) ? data : AllContentData.Find(x => x.AddonFileName == filename);
+        }
+
+        public static ExtractData GetDataByPath(string filepath)
+        {
+            ExtractData data = ContentData.Find(x => x.AddonPath == filepath);
+            return (data != null) ? data : AllContentData.Find(x => x.AddonPath == filepath);
         }
 
         public static void ExtractAll()
@@ -128,7 +265,7 @@ namespace GmaExtractorLibrary
             return BitConverter.ToString(md5.Hash).Replace("-", "").ToLower();
         }
 
-        public static Process UnpackingBin(string binfile_path, string output_path)
+        public static Process UnpackingBin(string binFilePath, string outputPath)
         {
             try
             {
@@ -141,9 +278,9 @@ namespace GmaExtractorLibrary
                     startInfo = new ProcessStartInfo(SevenZipExePath);
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                    startInfo.Arguments = string.Format("7z x \"{0}\" -o\"{1}\"", binfile_path, output_path);
+                    startInfo.Arguments = string.Format("7z x \"{0}\" -o\"{1}\"", binFilePath, outputPath);
                 else
-                    startInfo.Arguments = string.Format("x \"{0}\" -y -o\"{1}\"", binfile_path, output_path);
+                    startInfo.Arguments = string.Format("x \"{0}\" -y -o\"{1}\"", binFilePath, outputPath);
 
                 startInfo.WindowStyle = ProcessWindowStyle.Hidden;
                 startInfo.UseShellExecute = false;
@@ -164,14 +301,20 @@ namespace GmaExtractorLibrary
             return null;
         }
 
-        public static Process ExtractSingle(string uid)
+        public static Process ExtractSingle(string filename)
         {
-            string gmad_exe_path = GetBinGmodFolder();
+            string gmadExePath = GetBinGmodFolder();
 
-            if (gmad_exe_path == null)
+            if (gmadExePath == null)
                 return null;
 
-            ExtractData Addon = GetDataByUid(uid);
+            ExtractData Addon = GetDataByUid(filename);
+
+            if (Addon == null)
+                Addon = GetDataByFilename(filename);
+
+            if (Addon == null)
+                Addon = GetDataByPath(filename);
 
             if (Addon == null)
             {
@@ -179,9 +322,9 @@ namespace GmaExtractorLibrary
                 return null;
             }
 
-            string FullExtractPath = ExtractPath + "\\" + Addon.AddonFileName + "_" + Addon.AddonDirectoryName;
+            string FullExtractPath = Path.Combine(ExtractPath, Addon.AddonFileName + "_" + Addon.AddonDirectoryName);
 
-            WorkshopChecker(ref FullExtractPath, Addon, uid);
+            WorkshopChecker(ref FullExtractPath, Addon, filename);
 
             ExtractData NewAddon = ExtractBinAndGetAddon(FullExtractPath, Addon);
             if (NewAddon != null)
@@ -193,19 +336,30 @@ namespace GmaExtractorLibrary
                 Console.WriteLine($"Addon directory created: " + FullExtractPath);
             }
 
-            return ExtractGma(gmad_exe_path, FullExtractPath, Addon);
+            return ExtractGma(gmadExePath, FullExtractPath, Addon);
         }
 
         public static Process ExtractSingleFile(string filepath)
         {
-            string gmad_exe_path = GetBinGmodFolder();
+            string gmadExePath = GetBinGmodFolder();
 
-            if (gmad_exe_path == null)
+            if (gmadExePath == null)
                 return null;
 
-            Console.WriteLine(Path.GetFileNameWithoutExtension(filepath));
+            string fileName = Path.GetFileNameWithoutExtension(filepath);
 
-            ExtractData Addon = GetDataByFilename(Path.GetFileNameWithoutExtension(filepath));
+            ExtractData Addon = GetDataByUid(fileName);
+
+            foreach (var contentValue in ContentData)
+            {
+                Console.WriteLine($"{fileName} ({fileName.Length}) - {contentValue.AddonFileName} ({contentValue.AddonFileName.Length})");
+            }
+
+            if (Addon == null)
+                Addon = GetDataByFilename(fileName);
+
+            if (Addon == null)
+                Addon = GetDataByPath(fileName);
 
             if (Addon == null)
             {
@@ -213,7 +367,7 @@ namespace GmaExtractorLibrary
                 return null;
             }
 
-            string FullExtractPath = ExtractPath + "\\" + Addon.AddonFileName + "_" + Addon.AddonDirectoryName;
+            string FullExtractPath = Path.Combine(ExtractPath, Addon.AddonFileName + "_" + Addon.AddonDirectoryName);
 
             WorkshopChecker(ref FullExtractPath, Addon, Addon.AddonUid);
 
@@ -227,28 +381,26 @@ namespace GmaExtractorLibrary
                 Console.WriteLine($"Addon directory created: " + FullExtractPath);
             }
 
-            return ExtractGma(gmad_exe_path, FullExtractPath, Addon);
+            return ExtractGma(gmadExePath, FullExtractPath, Addon);
         }
 
         private static string GetBinGmodFolder()
         {
-            if (BinPath == null)
-                return null;
+            string BinPath = Path.Combine(GameFolderPath, "bin");
 
             Console.WriteLine("-------------------------------------------");
 
             if (ExtractPath == null)
-                ExtractPath = System.AppDomain.CurrentDomain.BaseDirectory + "\\Extract";
+                ExtractPath = Path.Combine(Directory.GetCurrentDirectory(), "Extract");
+                //ExtractPath = System.AppDomain.CurrentDomain.BaseDirectory + "\\Extract";
 
             if (!Directory.Exists(ExtractPath))
-            {
                 Directory.CreateDirectory(ExtractPath);
-            }
 
-            string gmad_exe_path = BinPath + "\\gmad.exe";
+            string gmad_exe_path = Path.Combine(BinPath, "gmad.exe");
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                gmad_exe_path = BinPath + "\\gmad_linux";
+                gmad_exe_path = Path.Combine(BinPath, "gmad_linux");
 
             if (Directory.Exists(BinPath))
                 if (!File.Exists(gmad_exe_path))
@@ -274,22 +426,22 @@ namespace GmaExtractorLibrary
                     $"Last update - {addonData.UpdateDate}");
                 Console.WriteLine("***********************************************");
 
-                string titleRep = addonData.Title.ToLower().Replace('-', '_');
-                titleRep = titleRep.Replace(' ', '_');
-                titleRep = titleRep.Replace("'", "_");
-                titleRep = titleRep.Replace("&quot;", "_");
-                titleRep = titleRep.Replace("&amp;", "_");
-                titleRep = titleRep.Replace("/", "_");
-                titleRep = titleRep.Replace("\\", "_");
-                titleRep = titleRep.Replace(":", "_");
-                titleRep = titleRep.Replace("?", "_");
-                titleRep = titleRep.Replace("*", "_");
-                titleRep = titleRep.Replace("\"", "_");
-                titleRep = titleRep.Replace("<", "_");
-                titleRep = titleRep.Replace(">", "_");
-                titleRep = titleRep.Replace("|", "_");
+                string addonName = addonData.Title.ToLower().Replace('-', '_');
+                addonName = addonName.Replace(' ', '_');
+                addonName = addonName.Replace("'", "_");
+                addonName = addonName.Replace("&quot;", "_");
+                addonName = addonName.Replace("&amp;", "_");
+                addonName = addonName.Replace("/", "_");
+                addonName = addonName.Replace("\\", "_");
+                addonName = addonName.Replace(":", "_");
+                addonName = addonName.Replace("?", "_");
+                addonName = addonName.Replace("*", "_");
+                addonName = addonName.Replace("\"", "_");
+                addonName = addonName.Replace("<", "_");
+                addonName = addonName.Replace(">", "_");
+                addonName = addonName.Replace("|", "_");
 
-                fullPath = ExtractPath + "\\" + titleRep + "_" + Addon.AddonDirectoryName;
+                fullPath = Path.Combine(ExtractPath, addonName + "_" + Addon.AddonDirectoryName);
             }
         }
 
@@ -305,7 +457,7 @@ namespace GmaExtractorLibrary
                     Console.WriteLine($"Addon directory created: " + FullExtractPath);
                 }
 
-                string TempPath = FullExtractPath + "\\Temp";
+                string TempPath = Path.Combine(FullExtractPath, "temp");
 
                 if (!Directory.Exists(TempPath))
                 {
@@ -352,7 +504,7 @@ namespace GmaExtractorLibrary
 
                 if (Addon.IsBin)
                 {
-                    Directory.Delete(FullExtractPath + "\\Temp", true);
+                    Directory.Delete(Path.Combine(FullExtractPath, "temp"), true);
                 }
 
                 return gmadProcess;

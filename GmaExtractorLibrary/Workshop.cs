@@ -25,21 +25,23 @@ namespace GmaExtractorLibrary
             public string Favorites = "None";
         }
 
-        public static AddonData GetAddonData(string workshop_addon_id, bool ignore_cache = false)
+        public static AddonData GetAddonData(string workshopAddonId, bool cacheIgnore = false)
         {
-            string CurrentDirectoryPath = System.AppDomain.CurrentDomain.BaseDirectory;
+            string currentDirectoryPath = System.AppDomain.CurrentDomain.BaseDirectory;
+            string fileCachePath = Path.Combine(currentDirectoryPath, "cache.json");
+
             List<AddonData> caches = new List<AddonData>();
 
-            if (!ignore_cache)
+            if (!cacheIgnore)
             {
-                if (File.Exists(CurrentDirectoryPath + "\\cache.json"))
+                if (File.Exists(fileCachePath))
                 {
-                    string fileJson = File.ReadAllText(CurrentDirectoryPath + "\\cache.json");
+                    string fileJson = File.ReadAllText(fileCachePath);
                     caches = JsonConvert.DeserializeObject<List<AddonData>>(fileJson);
 
-                    AddonData GetCacheAddon = caches.Find(x => x.Uid == workshop_addon_id);
-                    if (GetCacheAddon != null)
-                        return GetCacheAddon;
+                    AddonData getAddonsCache = caches.Find(x => x.Uid == workshopAddonId);
+                    if (getAddonsCache != null)
+                        return getAddonsCache;
                 }
             }
 
@@ -51,7 +53,7 @@ namespace GmaExtractorLibrary
 
                 using (WebClient client = new WebClient())
                 {
-                    htmlBody = client.DownloadString("https://steamcommunity.com/sharedfiles/filedetails/?id=" + workshop_addon_id.ToString());
+                    htmlBody = client.DownloadString("https://steamcommunity.com/sharedfiles/filedetails/?id=" + workshopAddonId.ToString());
                 }
 
                 if (htmlBody == null)
@@ -103,20 +105,20 @@ namespace GmaExtractorLibrary
                 addonData.UniqueVisitors = cells[0].InnerText;
                 addonData.Subscribers = cells[2].InnerText;
                 addonData.Favorites = cells[4].InnerText;
-                addonData.Uid = workshop_addon_id;
+                addonData.Uid = workshopAddonId;
 
-                if (caches.Count == 0 && File.Exists(CurrentDirectoryPath + "\\cache.json"))
+                if (caches.Count == 0 && File.Exists(fileCachePath))
                 {
-                    string fileJson = File.ReadAllText(CurrentDirectoryPath + "\\cache.json");
+                    string fileJson = File.ReadAllText(fileCachePath);
                     caches = JsonConvert.DeserializeObject<List<AddonData>>(fileJson);
                 }
 
-                if (ignore_cache)
+                if (cacheIgnore)
                 {
                     bool isExists = false;
                     for (int i = 0; i < caches.Count; i++)
                     {
-                        if (caches[i].Uid == workshop_addon_id)
+                        if (caches[i].Uid == workshopAddonId)
                         {
                             caches[i] = addonData;
                             isExists = true;
@@ -127,12 +129,12 @@ namespace GmaExtractorLibrary
                     if (!isExists)
                         caches.Add(addonData);
 
-                    File.WriteAllText(CurrentDirectoryPath + "\\cache.json", JsonConvert.SerializeObject(caches, Formatting.Indented));
+                    File.WriteAllText(fileCachePath, JsonConvert.SerializeObject(caches, Formatting.Indented));
                 }
                 else
                 {
                     caches.Add(addonData);
-                    File.WriteAllText(CurrentDirectoryPath + "\\cache.json", JsonConvert.SerializeObject(caches, Formatting.Indented));
+                    File.WriteAllText(fileCachePath, JsonConvert.SerializeObject(caches, Formatting.Indented));
                 }
 
                 return addonData;
