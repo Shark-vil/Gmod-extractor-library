@@ -37,9 +37,13 @@ namespace GmaExtractorLibrary
         {
             string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string configDirectoryPath = Path.Combine(baseDirectory, "Config");
+            string extractDirectoryPath = Path.Combine(baseDirectory, "Extract");
 
             if (!Directory.Exists(configDirectoryPath))
                 Directory.CreateDirectory(configDirectoryPath);
+
+            if (!Directory.Exists(extractDirectoryPath))
+                Directory.CreateDirectory(extractDirectoryPath);
 
             string fileSettingsPath = Path.Combine(configDirectoryPath, "settings.cfg");
 
@@ -350,10 +354,10 @@ namespace GmaExtractorLibrary
 
             ExtractData Addon = GetDataByUid(fileName);
 
+            /*
             foreach (var contentValue in ContentData)
-            {
                 Console.WriteLine($"{fileName} ({fileName.Length}) - {contentValue.AddonFileName} ({contentValue.AddonFileName.Length})");
-            }
+            */
 
             if (Addon == null)
                 Addon = GetDataByFilename(fileName);
@@ -397,19 +401,19 @@ namespace GmaExtractorLibrary
             if (!Directory.Exists(ExtractPath))
                 Directory.CreateDirectory(ExtractPath);
 
-            string gmad_exe_path = Path.Combine(BinPath, "gmad.exe");
+            string gmadExePath = Path.Combine(BinPath, "gmad.exe");
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                gmad_exe_path = Path.Combine(BinPath, "gmad_linux");
+                gmadExePath = Path.Combine(BinPath, "gmad_linux");
 
             if (Directory.Exists(BinPath))
-                if (!File.Exists(gmad_exe_path))
+                if (!File.Exists(gmadExePath))
                 {
-                    Console.WriteLine($"File \"{gmad_exe_path}\" not exists!");
+                    Console.WriteLine($"File \"{gmadExePath}\" not exists!");
                     return null;
                 }
 
-            return gmad_exe_path;
+            return gmadExePath;
         }
 
         private static void WorkshopChecker(ref string fullPath, ExtractData Addon, string uid = "")
